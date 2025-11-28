@@ -38,7 +38,6 @@ use crate::metrics::Metrics;
 use foundations::telemetry::TelemetryContext;
 use pin_project::pin_project;
 use std::future::Future;
-use std::pin::pin;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -193,8 +192,8 @@ where
     let ctx = TelemetryContext::current();
 
     if cfg!(feature = "tokio-task-metrics") {
-        killswitch_spawn(Instrumented::new(name, metrics, ctx.apply(future)))
+        killswitch_spawn(Instrumented::new(name, metrics, ctx.apply(future)));
     } else {
-        killswitch_spawn(ctx.apply(future))
+        killswitch_spawn(ctx.apply(future));
     }
 }

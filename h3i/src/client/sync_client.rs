@@ -30,6 +30,8 @@ use std::slice::Iter;
 use std::time::Duration;
 use std::time::Instant;
 
+use ring::rand::*;
+
 use crate::client::QUIC_VERSION;
 use crate::frame::H3iFrame;
 use crate::quiche;
@@ -103,6 +105,13 @@ fn create_config(args: &Config, should_log_keys: bool) -> quiche::Config {
     config.set_max_stream_window(args.max_stream_window);
     config.grease(false);
 
+    if args.enable_dgram {
+        config.enable_dgram(
+            true,
+            args.dgram_recv_queue_len,
+            args.dgram_send_queue_len,
+        );
+    }
     if should_log_keys {
         config.log_keys()
     }
@@ -159,7 +168,9 @@ pub fn connect(
 
     // Generate a random source connection ID for the connection.
     let mut scid = [0; quiche::MAX_CONN_ID_LEN];
-    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut scid);
+
+    let rng = SystemRandom::new();
+    rng.fill(&mut scid[..]).unwrap();
 
     let scid = quiche::ConnectionId::from_ref(&scid);
 
@@ -488,11 +499,15 @@ fn check_duration_and_do_actions(
 
 /// Generate a new pair of Source Connection ID and reset token.
 pub fn generate_cid_and_reset_token() -> (quiche::ConnectionId<'static>, u128) {
+    let rng = SystemRandom::new();
+
     let mut scid = [0; quiche::MAX_CONN_ID_LEN];
-    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut scid);
+    rng.fill(&mut scid[..]).unwrap();
     let scid = scid.to_vec().into();
+
     let mut reset_token = [0; 16];
-    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut reset_token);
+    rng.fill(&mut reset_token[..]).unwrap();
+
     let reset_token = u128::from_be_bytes(reset_token);
     (scid, reset_token)
 }

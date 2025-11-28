@@ -104,8 +104,8 @@ struct RecoveryEpoch {
     loss_probes: usize,
     pkts_in_flight: usize,
 
-    acked_frames: Vec<frame::Frame>,
-    lost_frames: Vec<frame::Frame>,
+    acked_frames: VecDeque<frame::Frame>,
+    lost_frames: VecDeque<frame::Frame>,
 
     /// The largest packet number sent in the packet number space so far.
     #[allow(dead_code)]
@@ -654,12 +654,12 @@ impl RecoveryOps for GRecovery {
                 MAX_OUTSTANDING_NON_ACK_ELICITING
     }
 
-    fn get_acked_frames(&mut self, epoch: packet::Epoch) -> Vec<frame::Frame> {
-        std::mem::take(&mut self.epochs[epoch].acked_frames)
+    fn next_acked_frame(&mut self, epoch: packet::Epoch) -> Option<frame::Frame> {
+        self.epochs[epoch].acked_frames.pop_front()
     }
 
-    fn get_lost_frames(&mut self, epoch: packet::Epoch) -> Vec<frame::Frame> {
-        std::mem::take(&mut self.epochs[epoch].lost_frames)
+    fn next_lost_frame(&mut self, epoch: packet::Epoch) -> Option<frame::Frame> {
+        self.epochs[epoch].lost_frames.pop_front()
     }
 
     fn get_largest_acked_on_epoch(&self, epoch: packet::Epoch) -> Option<u64> {
@@ -1190,7 +1190,7 @@ mod tests {
     fn loss_threshold() {
         let config = Config::new(crate::PROTOCOL_VERSION).unwrap();
         let recovery_config = RecoveryConfig::from_config(&config);
-        assert_eq!(recovery_config.enable_relaxed_loss_threshold, false);
+        assert!(!recovery_config.enable_relaxed_loss_threshold);
 
         let mut loss_thresh = LossThreshold::new(&recovery_config);
         assert_eq!(loss_thresh.time_thresh_overhead, None);
